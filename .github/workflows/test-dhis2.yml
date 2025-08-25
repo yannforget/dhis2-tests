@@ -1,0 +1,42 @@
+name: Test DHIS2 Deployment
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-dhis2:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: install uv
+      uses: astral-sh/setup-uv@v6
+    - name: set up python
+      run: uv python install
+    - name: install project
+      run: uv sync --locked --dev
+    - name: start dhis2
+      run: |
+        cd dhis2
+        docker compose -f docker-compose.ci.yml up -d
+    - name: wait for dhis2
+      run: |
+        echo "Waiting for DHIS2 to start..."
+        sleep 30
+        docker compose -f dhis2/docker-compose.ci.yml ps
+    - name: run tests
+      run: uv run test_dhis2_connectivity.py
+    - name: show container logs on failure
+      if: failure()
+      run: |
+        echo "=== Web container logs ==="
+        docker compose -f dhis2/docker-compose.ci.yml logs web
+        echo "=== DB container logs ==="
+        docker compose -f dhis2/docker-compose.ci.yml logs db
+    - name: cleanup
+      if: always()
+      run: |
+        cd dhis2
+        docker compose -f docker-compose.ci.yml down -v

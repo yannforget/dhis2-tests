@@ -1,4 +1,5 @@
 services:
+
   web:
     image: "dhis2/core:${DHIS2_VERSION:-2.41}"
     ports:
@@ -15,22 +16,29 @@ services:
       - dhis2-net
 
   db:
-    image: "ghcr.io/baosystems/postgis:${POSTGRES_VERSION:-13-3.4}"
+    image: "ghcr.io/baosystems/postgis:${POSTGIS_VERSION:-13-3.4}"
     volumes:
-      - ./db-dump:/docker-entrypoint-initdb.d/:ro
+      - postgres-data:/var/lib/postgresql/data
+      - ./db-dump_${DBDUMP_HASH}:/docker-entrypoint-initdb.d/:ro
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-dhis}
-      POSTGRES_DB: ${POSTGRES_DB:-dhis}
-      POSTGRES_PASSWORD: &postgres_password ${POSTGRES_PASSWORD:-dhis}
+      POSTGRES_USER: dhis
+      POSTGRES_DB: dhis
+      POSTGRES_PASSWORD: &postgres_password dhis
       PGPASSWORD: *postgres_password
+      PGDATA: /var/lib/postgresql/data
     healthcheck:
       test: [ "CMD-SHELL", "psql --no-password --quiet --username $$POSTGRES_USER postgres://127.0.0.1/$$POSTGRES_DB -p 5432 --command \"SELECT 'ok'\" > /dev/null" ]
-      start_period: 300s
+      start_period: 600s
       interval: 5s
       timeout: 5s
       retries: 60
     networks:
       - dhis2-net
+
+volumes:
+  postgres-data:
+    external: true
+    name: dhis2_${DBDUMP_HASH}_postgres-data
 
 networks:
   dhis2-net:
